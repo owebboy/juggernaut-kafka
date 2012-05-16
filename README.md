@@ -1,5 +1,12 @@
 #Juggernaut
 
+This is a forked and modified version of original [Juggernaut](https://github.com/maccman/juggernaut). Instead of Redis
+this version uses Apache Kafka - a high-throughput distributed messaging system written and outsourced by Linkedin.
+My concern was that although Redis is blazing fast it is unclear how to distribute it at the point when one server won't be enough. 
+Kafka is easily distributed and seems like a better solution for scalable real-time notification system.
+
+Work is still in progress and this version isn't production ready.
+
 Juggernaut gives you a realtime connection between your servers and client browsers. 
 You can literally push data to clients using your web application, which lets you do awesome things like multiplayer gaming, chat, group collaboration and more. 
 
@@ -39,7 +46,7 @@ Supported browsers are:
 ##Requirements
 
 * Node.js
-* Redis
+* Apache Kafka
 * Ruby (optional)
 
 ##Setup
@@ -52,31 +59,32 @@ If you're using the [Brew](http://mxcl.github.com/homebrew) package management s
 
 Or follow the [Node build instructions](https://github.com/joyent/node/wiki/Installation)
 
-###Install [Redis](http://code.google.com/p/redis)
+###Install [Apache Kafka](http://incubator.apache.org/kafka/downloads.html)
 
-If you're using the Brew package, use that:
-
-    brew install redis
-    
-Or follow the [Redis build instructions](http://redis.io/download)
+Installing Kafka is almost as easy as installing Redis.  
+Follow [Kafka quickstart instructions](http://incubator.apache.org/kafka/quickstart.html)
 
 ###Install Juggernaut
 
 Juggernaut is distributed by [npm](http://npmjs.org), you'll need to [install that](http://npmjs.org) first if you haven't already.
 
-    npm install -g juggernaut
+    npm install -g juggernaut-kafka
 
-###Install the [Juggernaut client gem](http://rubygems.org/gems/juggernaut)
+###Install the [Juggernaut client gem](http://rubygems.org/gems/juggernaut-kafka)
 
 This step is optional, but if you're planning on using Juggernaut with Ruby, you'll need the gem.
 
-    gem install juggernaut
+    gem install juggernaut-kafka
 
 ##Running
 
-Start Redis:
+Start ZooKeeper:
   
-    redis-server
+    bin/zookeeper-server-start.sh config/zookeeper.properties  
+
+Start Kafka server:  
+
+    bin/kafka-server-start.sh config/server.properties
 
 Start Juggernaut:
 
@@ -148,10 +156,7 @@ All Juggernaut's communication will now be encrypted by SSL.
 
 ##Scaling
 
-The only centralised (i.e. potential bottle neck) part to Juggernaut is Redis. 
-Redis can support hundreds of thousands writes a second, so it's unlikely that will be an issue. 
-
-Scaling is just a case of starting up more Juggernaut Node servers, all sharing the same Redis instance. 
+Scaling is just a case of starting up more Juggernaut Node servers, all sharing the same Kafka cluster. 
 Put a TCP load balancer in front them, distribute clients with a Round Robin approach, and use sticky sessions. 
 
 It's worth noting that the latest WebSocket specification breaks support for a lot of HTTP load balancers, so it's safer just using a TCP one.
@@ -170,16 +175,16 @@ Here's an example of event binding. We're using [jQuery UI](http://jqueryui.com)
     var jug = new Juggernaut;
 
     var offline = $("<div></div>")
-    	.html("The connection has been disconnected! <br /> " + 
-    	      "Please go back online to use this service.")
-    	.dialog({
-    		autoOpen: false,
-    		modal:    true,
-    		width:    330,
-    		resizable: false,
-    		closeOnEscape: false,
-    		title: "Connection"
-    	});
+      .html("The connection has been disconnected! <br /> " + 
+            "Please go back online to use this service.")
+      .dialog({
+        autoOpen: false,
+        modal:    true,
+        width:    330,
+        resizable: false,
+        closeOnEscape: false,
+        title: "Connection"
+      });
 
     jug.on("connect", function(){ 
       offline.dialog("close");
@@ -243,155 +248,25 @@ which gets passed along to any server events. For example, you could set User ID
     var jug = new Juggernaut;
     jug.meta = {user_id: 1};
     
-##Using Juggernaut from Python
-
-You don't have to use Ruby to communicate with Juggernaut. In fact, all that is needed is a [Redis](http://code.google.com/p/redis) adapter. Here we're using [Python](http://www.python.org) with [redis-py](http://github.com/andymccurdy/redis-py).
-
-    import redis
-    import json
-
-    msg = {
-      "channels": ["channel1"],
-      "data": "foo"
-    }
-
-    r = redis.Redis()
-    r.publish("juggernaut", json.dumps(msg))
-    
 ##Using Juggernaut from Node.js
 
-Similar to the Python example, we can use a Node.js Redis adapter to publish to Juggernaut.
+We can use a Node.js Kafka adapter to publish to Juggernaut.
 
-    var redis   = require("redis");
+    var kafka   = require("kafka");
 
     var msg = {
       "channels": ["channel1"],
       "data": "foo"
     };
 
-    var client = redis.createClient();
-    client.publish("juggernaut", JSON.stringify(msg));
+    var producer = new kafka.Producer({
+      // these are also the default values
+      host:         'localhost',
+      port:         9092,
+      topic:        'juggernaut',
+      partition:    0
+    })
 
-##Building a Roster
-
-So, let's take all we've learnt about Juggernaut, and apply it to something practical - a live chat roster.
-Here's the basic class. We're using [SuperModel](http://github.com/maccman/supermodel) with the Redis adapter. Any changes to the model will be saved to our Redis data store. We're also associating each Roster record with a user.
-
-    class Roster < SuperModel::Base
-      include SuperModel::Redis::Model
-      include SuperModel::Timestamp::Model
-
-      belongs_to :user
-      validates_presence_of :user_id
-  
-      indexes :user_id
-    end
-    
-Now let's integrate the Roster class with Juggernaut. We're going to listen to Juggernaut's server events - fetching the user_id out of the events meta data, and calling __event_subscribe__ or __event_unsubscribe__, depending on the event type.
-    
-    def self.subscribe
-      Juggernaut.subscribe do |event, data|
-        user_id = data["meta"] && data["meta"]["user_id"]
-        next unless user_id
-          
-        case event
-        when :subscribe
-          event_subscribe(user_id)
-        when :unsubscribe
-          event_unsubscribe(user_id)
-        end
-      end
-    end
-        
-Let's implement those two methods __event_subscribe__ & __event_unsubscribe__. We need to take into account they may be called multiple times for a particular user_id, if a User opens multiple browser windows co-currently. 
-    
-    def event_subscribe(user_id)
-      record = find_by_user_id(user_id) || self.new(:user_id => user_id)
-      record.increment!
-    end
-
-    def event_unsubscribe(user_id)
-      record = find_by_user_id(user_id)
-      record && record.decrement!
-    end
-    
-We need to add a __count__ attribute to the Roster class, so we can track if a client has completely disconnected from the system.
-Whenever clients subscribes to a channel, __increment!__ will get called and the __count__ attribute will be incremented, conversly whenever they disconnect from that channel __decrement!__ will get called and __count__ decremented.
-
-    attributes :count
-    
-    def count
-      read_attribute(:count) || 0
-    end
-
-    def increment!
-      self.count += 1
-      save!
-    end
-
-    def decrement!
-      self.count -= 1
-      self.count > 0 ? save! : destroy
-    end
-
-When __decrement!__ is called, we check to see if the count is zero, i.e. a client is no longer connected, and destroy the record if necessary. Now, at this point we have a live list of Roster records indicating who's online. We just need to call __Roster.subscribe__, say in a Rails script file, and Juggernaut events will be processed.
-
-    #!/usr/bin/env ruby
-    require File.expand_path('../../config/environment',  __FILE__)
-
-    puts "Starting Roster"
-    Roster.subscribe 
-
-There's no point, however, in having a live Roster unless we can show that to users - which is the subject of the next section, observing models. 
-
-##Observing models
-
-We can create an Juggernaut observer, which will observe some of the models, notifying clients when they're changed.
-
-    class JuggernautObserver < ActiveModel::Observer
-      observe :roster
-      
-      def after_create(rec)
-        publish(:create, rec)
-      end
-  
-      def after_update(rec)
-        publish(:update, rec)
-      end
-  
-      def after_destroy(rec)
-        publish(:destroy, rec)
-      end
-  
-      protected
-        def publish(type, rec)
-          channels = Array(rec.observer_clients).map {|c| "/observer/#{c}" }
-          Juggernaut.publish(
-            channels, 
-            {
-              :id     => rec.id, 
-              :type   => type, 
-              :klass  => rec.class.name,
-              :record => rec
-            }
-          )
-        end
-    end
-    
-So, you can see we're calling the publish method whenever a record is created/updated/destroyed. You'll notice that we're calling __observer_clients__ on the updated record. This is a method that application specific, and needs to be implemented on the Roster class. It needs to return an array of user_ids associated with the record.
-
-So, as to the JavaScript side to the observer, we need to subscribe to a observer channel and set a callback. Now, whenever a __Roster__ record is created/destroyed, the process function will be called. We can then update the UI accordingly.
-
-    var process = function(msg){
-      // msg.klass
-      // msg.type
-      // msg.id
-      // msg.record 
-    };
-    
-    var jug = new Juggernaut;
-    jug.subscribe("/observer/" + user_id, process);
-
-##Full examples
-
-You can see the full examples inside [Holla](http://github.com/maccman/holla), specifically [roster.rb](https://github.com/maccman/holla/blob/original/app/models/roster.rb),  [juggernaut_observer.rb](https://github.com/maccman/holla/blob/original/app/observers/juggernaut_observer.rb) and [application.juggernaut.js](https://github.com/maccman/holla/blob/original/app/javascripts/application.juggernaut.js).
+    producer.connect(function() {
+        producer.send(msg)
+    })
