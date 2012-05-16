@@ -1,15 +1,15 @@
 { "name" : "juggernaut"
-, "description" : "Realtime PubSub server push."
+, "description" : "Realtime PubSub server push. (Kafka version)"
 , "version" : "2.1.1"
 , "author" : "maccman"
 , "licenses" :
   [ { "type" : "MIT"
-    , "url" : "https://github.com/maccman/juggernaut/blob/master/LICENSE"
+    , "url" : "https://github.com/yankov/juggernaut-kafka/blob/master/LICENSE"
     }
   ]
 , "repository" :
   { "type" : "git"
-  , "url" : "http://github.com/maccman/juggernaut.git"
+  , "url" : "http://github.com/yankov/juggernaut-kafka.git"
   }
 , "engine" : [ "node >=0.1.102" ]
 , "main" : "./index"
