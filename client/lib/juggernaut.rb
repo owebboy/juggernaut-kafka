@@ -1,15 +1,10 @@
-require "redis"
+require "kafka"
 require "json"
 
 # Attempt to provide Engine to Rails
 require "juggernaut/rails/engine"
 
 module Juggernaut
-  EVENTS = [
-    "juggernaut:subscribe", 
-    "juggernaut:unsubscribe", 
-    "juggernaut:custom"
-  ]
   
   def options
     @options ||= {}
@@ -25,20 +20,24 @@ module Juggernaut
   
   def publish(channels, data, options = {})
     message = ({:channels => Array(channels).uniq, :data => data}).merge(options)
-    redis.publish(key, message.to_json) 
+    message = Kafka::Message.new(message.to_json)
+
+    kafka.send(message) 
   end
   
   def subscribe
-    Redis.connect(options).subscribe(*EVENTS) do |on|
-      on.message do |type, msg|
-        yield(type.gsub(/^juggernaut:/, "").to_sym, JSON.parse(msg))
-      end
+    consumer.loop do |msg|
+       yield("juggernaut", JSON.parse(msg))
     end
   end
   
   protected
-    def redis
-      @redis ||= Redis.connect(options)
+    def kafka
+      @kafka ||= Kafka::Producer.new({:topic => 'juggernaut', :partition => 0}.merge(options))
+    end
+
+    def consumer
+      @consumer ||= Kafka::Consumer.new(:topic => 'juggernaut')
     end
   
     def key(*args)

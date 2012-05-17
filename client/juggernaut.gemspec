@@ -4,13 +4,13 @@
 # -*- encoding: utf-8 -*-
 
 Gem::Specification.new do |s|
-  s.name = %q{juggernaut}
-  s.version = "2.1.1"
+  s.name = %q{juggernaut-kafka}
+  s.version = "2.1.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = [%q{Alex MacCaw}]
   s.date = %q{2012-01-03}
-  s.description = %q{Use Juggernaut to easily implement realtime chat, collaboration, gaming and much more!}
+  s.description = %q{Juggernaut client that works with Apache Kafka}
   s.email = %q{info@eribium.org}
   s.files = [
     ".document",
@@ -28,7 +28,7 @@ Gem::Specification.new do |s|
     "vendor/assets/javascripts/juggernaut.js",
     "vendor/assets/javascripts/socket_io.js"
   ]
-  s.homepage = %q{http://github.com/maccman/juggernaut}
+  s.homepage = %q{http://github.com/yankov/juggernaut-kafka}
   s.require_paths = [%q{lib}]
   s.rubygems_version = %q{1.8.6}
   s.summary = %q{Simple realtime push}
@@ -37,12 +37,12 @@ Gem::Specification.new do |s|
     s.specification_version = 3
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-      s.add_runtime_dependency(%q<redis>, [">= 0"])
+      s.add_runtime_dependency(%q<kafka-rb>, [">= 0"])
     else
-      s.add_dependency(%q<redis>, [">= 0"])
+      s.add_dependency(%q<kafka-rb>, [">= 0"])
     end
   else
-    s.add_dependency(%q<redis>, [">= 0"])
+    s.add_dependency(%q<kafka-rb>, [">= 0"])
   end
 end
 

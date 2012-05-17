@@ -1,6 +1,6 @@
 { "name" : "juggernaut-kafka"
 , "description" : "Realtime PubSub server push. (Kafka version)"
-, "version" : "2.1.1"
+, "version" : "2.1.2"
 , "author" : "maccman"
 , "licenses" :
   [ { "type" : "MIT"
