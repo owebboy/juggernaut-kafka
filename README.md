@@ -5,8 +5,6 @@ this version uses Apache Kafka - a high-throughput distributed messaging system 
 My concern was that although Redis is blazing fast it is unclear how to distribute it at the point when one server won't be enough. 
 Kafka is easily distributed and seems like a better solution for scalable real-time notification system.
 
-Work is still in progress and this version isn't production ready.
-
 Juggernaut gives you a realtime connection between your servers and client browsers. 
 You can literally push data to clients using your web application, which lets you do awesome things like multiplayer gaming, chat, group collaboration and more. 
 
